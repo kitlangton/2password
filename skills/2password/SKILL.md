@@ -35,6 +35,8 @@ Returns titles, vaults, field names, and `op://` references. It never returns va
 
 All references in a template resolve with one prompt. Never loop over `read`. A `.env.tpl` that holds only `op://` references is safe to inspect; a resolved `.env` is plaintext.
 
+`run` and `env run` keep the secret out of argv, the template, and 2password's own output, but the selected child process receives plaintext in its environment. Treat that child as a trusted secret consumer: do not inject credentials into environment-dump/debug commands or helpers whose purpose is to reveal the value.
+
 ## Save a new API key
 
 ```bash
