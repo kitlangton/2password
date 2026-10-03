@@ -33,8 +33,10 @@ Run `2password --help` to see all commands.
 
 ## Safety
 
-- Only `read` and `env resolve` ever output a secret.
+- Only `read` and `env resolve` intentionally output or materialize secret values.
+- `run` and `env run` resolve plaintext inside the child process. 1Password masks matching stdout/stderr by default, but masking is best effort, so only run commands you trust with the credential.
 - New secrets come in through the clipboard or a pipe, never as arguments. Every write is read back and checked.
 - Writes are never retried automatically.
+- 2password is a safer credential-use surface, not an OS sandbox: direct `op` access or a compromised child process is outside this boundary.
 
 MIT
