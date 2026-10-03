@@ -10,6 +10,8 @@ description: Use for any password, API key, token, credential, secret, or 1Passw
 ## Rules
 
 - Never print, log, summarize, or repeat secret values. Pass `op://` references around instead.
+- `run` and `env run` give the target child process plaintext. Use them only with the command that actually needs the credential; never route a secret through a helper whose purpose is to print, encode, transform, or forward it. Output masking is best effort.
+- Treat `read` and `env resolve` as explicit escape hatches because they intentionally expose plaintext.
 - Any 1Password call may show the user an approval prompt. Batch work into one command: many queries in one `find`, many references in one env file.
 - Never run `op whoami` or any other preflight check. Just run the command; the desktop app authorizes it when needed.
 - Never retry a write that failed or reported "unverified". Run `find` first to check whether it already happened.
