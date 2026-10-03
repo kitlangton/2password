@@ -33,7 +33,8 @@ Run `2password --help` to see all commands.
 
 ## Safety
 
-- Only `read` and `env resolve` ever output a secret.
+- Only `read` and `env resolve` intentionally return or materialize a secret from 2password.
+- `run` and `env run` inject plaintext into the selected child process. 2password does not print the value, but the child can; only use them with commands you trust with that credential.
 - New secrets come in through the clipboard or a pipe, never as arguments. Every write is read back and checked.
 - Writes are never retried automatically.
 
