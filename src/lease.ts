@@ -25,6 +25,11 @@ export interface ResourceVersion {
   readonly version: number
 }
 
+export interface ResolverDependencies {
+  readonly inspect: (reference: string) => Effect.Effect<ResourceVersion, Op.Failure>
+  readonly read: (reference: string) => Effect.Effect<string, Op.Failure>
+}
+
 interface LeaseRow {
   readonly id: string
   readonly principal: string
@@ -295,26 +300,37 @@ export const claim = Effect.fn("Lease.claim")(function* (
   })
 })
 
+export const resolverWith = (
+  id: string,
+  binding: Binding,
+  options: StoreOptions,
+  dependencies: ResolverDependencies,
+): ((reference: string) => Effect.Effect<string, Op.Failure>) =>
+  Effect.fn("Lease.resolverWith")(function* (reference: string) {
+    if (reference !== binding.reference) return yield* fail("Lease does not match the requested credential")
+
+    const before = yield* dependencies.inspect(reference)
+    yield* claim(id, binding, before, options)
+
+    const value = yield* dependencies.read(reference)
+    const after = yield* dependencies.inspect(reference)
+    if (after.id !== before.id || after.version !== before.version) {
+      return yield* fail("Credential changed during leased use; the lease use was consumed and nothing was sent")
+    }
+    return value
+  })
+
 export const resolver = (
   id: string,
   binding: Binding,
   options: StoreOptions = {},
 ): ((reference: string) => Effect.Effect<string, Op.Failure>) =>
-  Effect.fn("Lease.resolver")(function* (reference: string) {
-    if (reference !== binding.reference) return yield* fail("Lease does not match the requested credential")
-
-    const before = yield* inspectReference(reference)
-    yield* claim(id, binding, before, options)
-
-    const value = yield* Op.op(["read", reference], {
-      failure: "Could not resolve leased credential (1Password details suppressed); the lease use was consumed",
-    })
-
-    const after = yield* inspectReference(reference)
-    if (after.id !== before.id || after.version !== before.version) {
-      return yield* fail("Credential changed during leased use; the lease use was consumed and nothing was sent")
-    }
-    return value
+  resolverWith(id, binding, options, {
+    inspect: inspectReference,
+    read: (reference) =>
+      Op.op(["read", reference], {
+        failure: "Could not resolve leased credential (1Password details suppressed); the lease use was consumed",
+      }),
   })
 
 export const status = Effect.fn("Lease.status")(function* (id: string, options: StoreOptions = {}) {
