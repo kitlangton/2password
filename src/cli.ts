@@ -203,14 +203,14 @@ const serviceStatus = Command.make("status", {}, () => ServiceAccount.status.pip
 
 const serviceRecover = Command.make("recover", { name: accountName }, ({ name }) =>
   ServiceAccount.recover(name).pipe(Effect.flatMap(print)),
-).pipe(Command.withDescription("Restore local settings from an existing Keychain token without creating an account"))
+).pipe(Command.withDescription("Restore local settings from the saved service-account token without creating an account"))
 
 const serviceForget = Command.make("forget", {}, () => ServiceAccount.forget.pipe(Effect.flatMap(print))).pipe(
-  Command.withDescription("Remove this Mac's saved token; does not revoke the remote service account"),
+  Command.withDescription("Remove this device's saved token; does not revoke the remote service account"),
 )
 
 const serviceAccount = Command.make("service-account").pipe(
-  Command.withDescription("Set up and manage unattended 1Password access on this Mac"),
+  Command.withDescription("Set up and manage unattended 1Password access on this device"),
   Command.withSubcommands([serviceSetup, serviceConnect, serviceStatus, serviceRecover, serviceForget]),
 )
 
