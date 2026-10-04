@@ -17,7 +17,8 @@ bunx skills add kitlangton/2password  # teaches your agent to use it
 2password find openai stripe        # returns op:// references, never values
 2password run --env "OPENAI_API_KEY=op://Personal/OpenAI API Key/credential" -- bun dev
 2password env run .env.tpl -- bun dev
-2password create api-credential --title "OpenAI API Key" --vault Personal --clipboard\n2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
+2password create api-credential --title "OpenAI API Key" --vault Personal --clipboard
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
 ```
 
 Run `2password --help` to see all commands.
@@ -33,7 +34,8 @@ Run `2password --help` to see all commands.
 
 ## Safety
 
-- Only `read` and `env resolve` ever intentionally output a secret.\n- `request` binds one credential to an HTTPS GET on port 443, rejects private/reserved destinations and redirects, caps responses at 64 KiB, and redacts exact secret echoes.
+- Only `read` and `env resolve` ever intentionally output a secret.
+- `request` binds one credential to an HTTPS GET on port 443, rejects private/reserved destinations and redirects, caps responses at 64 KiB, and redacts exact secret echoes.
 - New secrets come in through the clipboard or a pipe, never as arguments. Every write is read back and checked.
 - Writes are never retried automatically.
 
