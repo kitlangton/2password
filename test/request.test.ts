@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { Op } from "../src/op.js"
-import { Request, isPublicAddress } from "../src/request.js"
+import { Request, isPublicAddress } from "../src/request.js"\nimport { sandbox } from "./sandbox.js"
 
 const secret = "fictional-request-secret"
 
@@ -16,7 +16,7 @@ describe("request", () => {
           prefix: "Bearer ",
         },
         {
-          resolve: () => Effect.succeed(secret),
+          resolve: () => Effect.succeed(`${secret}\\n`),
           addresses: () => Effect.succeed([{ address: "93.184.216.34", family: 4 }]),
           send: (prepared, received, address) =>
             Effect.sync(() => {
@@ -61,7 +61,7 @@ describe("request", () => {
                 reads += 1
                 return secret
               }),
-            addresses: () => Effect.succeed([{ address: "127.0.0.1", family: 4 }]),
+            addresses: () =>\n              Effect.succeed([\n                { address: "93.184.216.34", family: 4 },\n                { address: "127.0.0.1", family: 4 },\n              ]),
             send: () => Effect.fail(Op.fail("must not send")),
           },
         ),
@@ -108,6 +108,43 @@ describe("request", () => {
       }),
     )
   }
+
+  it("redacts JSON-escaped echoes", async () => {
+    const quoted = 'fictional-"quoted"-secret'
+    const result = await Effect.runPromise(
+      Request.requestWith(
+        {
+          url: "https://api.example.com/v1/me",
+          reference: "op://Personal/Example/credential",
+          header: "X-API-Key",
+          prefix: "",
+        },
+        {
+          resolve: () => Effect.succeed(quoted),
+          addresses: () => Effect.succeed([{ address: "1.1.1.1", family: 4 }]),
+          send: () => {
+            const body = JSON.stringify({ token: quoted })
+            return Effect.succeed({ status: 200, body, bytes: Buffer.byteLength(body) })
+          },
+        },
+      ),
+    )
+    assert.strictEqual(result.body, '{"token":"[REDACTED]"}')
+    assert.strictEqual(result.redactions, 1)
+    assert.notInclude(JSON.stringify(result), quoted)
+  })
+
+  it("exposes the command and flags without touching op or the network", async () => {
+    const box = await sandbox({ op: "#!/bin/sh\\nexit 71\\n" })
+    try {
+      const result = await box.run(["request", "--help"])
+      assert.strictEqual(result.code, 0)
+      for (const value of ["<url>", "--secret", "--header", "--prefix"]) assert.include(result.stdout, value)
+      assert.deepStrictEqual(await box.calls(), [])
+    } finally {
+      await box.close()
+    }
+  })
 
   it("classifies private and public addresses conservatively", () => {
     for (const address of ["10.0.0.1", "127.0.0.1", "169.254.169.254", "192.168.1.1", "203.0.113.5"]) {
