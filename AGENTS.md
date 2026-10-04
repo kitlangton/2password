@@ -39,7 +39,8 @@ These are security properties. Do not weaken them.
 4. Never preflight with `op whoami`; the requested operation is the capability check.
 5. Every op call may prompt the user, so batch: `find` and `inventory` use one `item get -`, and env resolution uses one `op run`.
 6. If the saved service account fails, report the failure. Never fall back to desktop authentication.
-7. Results are JSON on stdout and notices go to stderr. Every expected error is an `Op.Failure`, printed as `2password: <message>` with exit code 1.\n8. `request` validates the complete destination and resolves all DNS answers before reading a credential, rejects any non-public answer, pins the connection to one validated address, follows no redirects, bounds the response, and redacts exact secret echoes before output.
+7. Results are JSON on stdout and notices go to stderr. Every expected error is an `Op.Failure`, printed as `2password: <message>` with exit code 1.
+8. `request` validates the complete destination and resolves all DNS answers before reading a credential, rejects any non-public answer, pins the connection to one validated address, follows no redirects, bounds the response, and redacts exact secret echoes before output.
 
 ## Changing things
 
