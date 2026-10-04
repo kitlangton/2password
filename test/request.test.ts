@@ -8,6 +8,28 @@ import { sandbox } from "./sandbox.js"
 const secret = "fictional-request-secret"
 
 describe("request", () => {
+  it("describes the exact non-secret authority binding without resolving anything", async () => {
+    const result = await Effect.runPromise(
+      Request.describe({
+        url: "https://api.example.com/v1/me?view=full",
+        reference: "op://Personal/Example/credential",
+        header: "authorization",
+        prefix: "Bearer ",
+      }),
+    )
+    assert.deepStrictEqual(result, {
+      capability: "request",
+      method: "GET",
+      reference: "op://Personal/Example/credential",
+      destination: "https://api.example.com/v1/me",
+      destinationFingerprint: createHash("sha256")
+        .update("https://api.example.com/v1/me?view=full")
+        .digest("hex"),
+      header: "Authorization",
+      prefix: "Bearer ",
+    })
+  })
+
   it.effect("binds the secret to a validated public destination and returns only a receipt", () =>
     Effect.gen(function* () {
       const result = yield* Request.requestWith(
