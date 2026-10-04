@@ -37,6 +37,15 @@ All references in a template resolve with one prompt. Never loop over `read`. A 
 
 `run` and `env run` keep the secret out of argv, the template, and 2password's own output, but the selected child process receives plaintext in its environment. Treat that child as a trusted secret consumer: do not inject credentials into environment-dump/debug commands or helpers whose purpose is to reveal the value.
 
+For a simple authenticated HTTPS GET, prefer the narrower private request executor:
+
+```bash
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --header X-API-Key --prefix ""
+```
+
+`request` validates HTTPS/port 443 and every resolved address before reading the credential, pins the connection to a validated public address, never follows redirects, limits the response to 64 KiB, and returns only receipt metadata. The response body stays private. Use `run` when this narrower primitive cannot express the operation.
+
 ## Save a new API key
 
 ```bash
