@@ -37,9 +37,7 @@ describe("request", () => {
         ok: true,
         status: 200,
         destination: "https://api.example.com/v1/me",
-        destinationFingerprint: createHash("sha256")
-          .update("https://api.example.com/v1/me?view=full")
-          .digest("hex"),
+        destinationFingerprint: createHash("sha256").update("https://api.example.com/v1/me?view=full").digest("hex"),
         reference: "op://Personal/Example/credential",
         responseBytes: Buffer.byteLength(`ok ${secret} then ${secret} private@example.com`),
         secretEchoes: 2,
