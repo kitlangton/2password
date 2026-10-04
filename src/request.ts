@@ -11,7 +11,7 @@ export interface Options {
   readonly prefix: string
 }
 
-interface Address {
+export interface Address {
   readonly address: string
   readonly family: 4 | 6
 }
@@ -138,7 +138,7 @@ const send = (prepared: Prepared, secret: string, address: Address) =>
           settled = true
           rejectPromise(new Error("request failed"))
         }
-        const request = httpsRequest(
+        const outbound = httpsRequest(
           prepared.url,
           {
             method: "GET",
@@ -156,7 +156,7 @@ const send = (prepared: Prepared, secret: string, address: Address) =>
               const buffer = typeof chunk === "string" ? Buffer.from(chunk) : chunk
               bytes += buffer.length
               if (bytes > responseLimit) {
-                request.destroy()
+                outbound.destroy()
                 reject()
                 return
               }
@@ -174,12 +174,12 @@ const send = (prepared: Prepared, secret: string, address: Address) =>
             response.on("error", reject)
           },
         )
-        request.setTimeout(15_000, () => {
-          request.destroy()
+        outbound.setTimeout(15_000, () => {
+          outbound.destroy()
           reject()
         })
-        request.on("error", reject)
-        request.end()
+        outbound.on("error", reject)
+        outbound.end()
       }),
     catch: () => fail("HTTPS request failed (details suppressed)"),
   })
@@ -197,7 +197,7 @@ const redact = (body: string, secret: string) => {
 }
 
 export const requestWith = Effect.fn("Request.requestWith")(function* (options: Options, dependencies: Dependencies) {
-  const prepared = yield* Effect.try({ try: () => prepare(options), catch: (error) => error as Op.Failure })
+  const prepared = yield* Effect.try({\n    try: () => prepare(options),\n    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),\n  })
   const resolved = yield* dependencies.addresses(hostname(prepared.url))
   if (resolved.some((address) => !isPublicAddress(address))) {
     return yield* fail("Request destination resolved to a non-public address")
