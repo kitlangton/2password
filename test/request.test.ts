@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"\nimport { createHash } from "node:crypto"
+import { Effect } from "effect"
+import { createHash } from "node:crypto"
 import { Op } from "../src/op.js"
 import { Request, isPublicAddress } from "../src/request.js"
 import { sandbox } from "./sandbox.js"
@@ -7,7 +8,7 @@ import { sandbox } from "./sandbox.js"
 const secret = "fictional-request-secret"
 
 describe("request", () => {
-  it.effect("binds the secret to a validated public destination and redacts exact echoes", () =>
+  it.effect("binds the secret to a validated public destination and returns only a receipt", () =>
     Effect.gen(function* () {
       const result = yield* Request.requestWith(
         {
@@ -160,6 +161,11 @@ describe("request", () => {
     }
     assert.isTrue(isPublicAddress({ address: "1.1.1.1", family: 4 }))
     assert.isFalse(isPublicAddress({ address: "::1", family: 6 }))
+    assert.isFalse(isPublicAddress({ address: "64:ff9b::7f00:1", family: 6 }))
+    assert.isFalse(isPublicAddress({ address: "100::1", family: 6 }))
+    assert.isFalse(isPublicAddress({ address: "2001:db8::1", family: 6 }))
+    assert.isFalse(isPublicAddress({ address: "2002:7f00:1::", family: 6 }))
+    assert.isFalse(isPublicAddress({ address: "3fff::1", family: 6 }))
     assert.isFalse(isPublicAddress({ address: "fe80::1", family: 6 }))
     assert.isTrue(isPublicAddress({ address: "2606:4700:4700::1111", family: 6 }))
   })
