@@ -204,32 +204,32 @@ const destinationFingerprint = (url: URL) => createHash("sha256").update(url.hre
 
 export const requestWith = <R>(options: Options, dependencies: Dependencies<R>) =>
   Effect.gen(function* () {
-  const prepared = yield* Effect.try({
-    try: () => prepare(options),
-    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
-  })
-  const resolved = yield* dependencies.addresses(hostname(prepared.url))
-  if (resolved.some((address) => !isPublicAddress(address))) {
-    return yield* fail("Request destination resolved to a non-public address")
-  }
-  const address = resolved[0]
-  if (address === undefined) return yield* fail("Request destination did not resolve")
+    const prepared = yield* Effect.try({
+      try: () => prepare(options),
+      catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
+    })
+    const resolved = yield* dependencies.addresses(hostname(prepared.url))
+    if (resolved.some((address) => !isPublicAddress(address))) {
+      return yield* fail("Request destination resolved to a non-public address")
+    }
+    const address = resolved[0]
+    if (address === undefined) return yield* fail("Request destination did not resolve")
 
-  const secret = (yield* dependencies.resolve(options.reference)).replace(/\r?\n$/, "")
-  if (secret.length === 0 || /[\r\n]/.test(secret)) {
-    return yield* fail("Request credential cannot be used in an HTTP header")
-  }
+    const secret = (yield* dependencies.resolve(options.reference)).replace(/\r?\n$/, "")
+    if (secret.length === 0 || /[\r\n]/.test(secret)) {
+      return yield* fail("Request credential cannot be used in an HTTP header")
+    }
 
-  const response = yield* dependencies.send(prepared, secret, address)
-  return {
-    ok: response.status >= 200 && response.status < 300,
-    status: response.status,
-    destination: `${prepared.url.origin}${prepared.url.pathname}`,
-    destinationFingerprint: destinationFingerprint(prepared.url),
-    reference: options.reference,
-    responseBytes: response.bytes,
-    secretEchoes: countSecretEchoes(response.body, secret),
-  }
+    const response = yield* dependencies.send(prepared, secret, address)
+    return {
+      ok: response.status >= 200 && response.status < 300,
+      status: response.status,
+      destination: `${prepared.url.origin}${prepared.url.pathname}`,
+      destinationFingerprint: destinationFingerprint(prepared.url),
+      reference: options.reference,
+      responseBytes: response.bytes,
+      secretEchoes: countSecretEchoes(response.body, secret),
+    }
   })
 
 export const request = (options: Options) =>
