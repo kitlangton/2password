@@ -22,7 +22,9 @@ src/discover.ts             find, inventory, audit
 src/env.ts                  read, run, env write/resolve/run
 src/create.ts               create api-credential
 src/password.ts             password compare/update
-src/request.ts              destination-bound HTTPS GET with secret echo redaction
+src/request.ts              destination-bound HTTPS private executor
+src/lease.ts                local principal + short-lived atomic use leases
+src/request-leased.ts       lease authority wrapped around request execution
 src/service-account.ts      service-account setup/connect/status/recover/forget
 src/arguments.ts            keeps arguments after `--` away from the flag parser
 skills/2password/SKILL.md   the agent skill we ship; keep it in sync with the CLI
@@ -41,6 +43,9 @@ These are security properties. Do not weaken them.
 6. If the saved service account fails, report the failure. Never fall back to desktop authentication.
 7. Results are JSON on stdout and notices go to stderr. Every expected error is an `Op.Failure`, printed as `2password: <message>` with exit code 1.
 8. `request` validates the complete destination and resolves all DNS answers before reading a credential, rejects any non-public answer, pins the connection to one validated address, follows no redirects, bounds the response, keeps the response body private, and reports only non-secret receipt metadata including exact-secret echo counts.
+9. The CLI never executes `request` without a matching lease. Authorization is checked before DNS; credential version is checked before an atomic use claim; the claim is consumed before plaintext resolution/network side effects; replay, expiry, revocation, binding mismatch, or version mismatch fail closed.
+10. `lease approve` is the human/admin path: interactive terminal only, desktop-authenticated, max 1 hour and 10 uses. Agent workflows may consume/status/revoke leases but must never mint one automatically.
+11. The local principal is a stable machine-level identity, not an OS isolation boundary. A stronger per-agent principal/approval channel belongs in a future broker/daemon rather than being implied by this CLI.
 
 ## Changing things
 
