@@ -50,30 +50,31 @@ describe("request", () => {
   it.effect("rejects a private destination before resolving the credential", () =>
     Effect.gen(function* () {
       let reads = 0
-      const result = yield* Effect.either(
-        Request.requestWith(
-          {
-            url: "https://internal.example/",
-            reference: "op://Personal/Example/credential",
-            header: "Authorization",
-            prefix: "Bearer ",
-          },
-          {
-            resolve: () =>
-              Effect.sync(() => {
-                reads += 1
-                return secret
-              }),
-            addresses: () =>
-              Effect.succeed([
-                { address: "93.184.216.34", family: 4 },
-                { address: "127.0.0.1", family: 4 },
-              ]),
-            send: () => Effect.fail(Op.fail("must not send")),
-          },
-        ),
+      const succeeded = yield* Request.requestWith(
+        {
+          url: "https://internal.example/",
+          reference: "op://Personal/Example/credential",
+          header: "Authorization",
+          prefix: "Bearer ",
+        },
+        {
+          resolve: () =>
+            Effect.sync(() => {
+              reads += 1
+              return secret
+            }),
+          addresses: () =>
+            Effect.succeed([
+              { address: "93.184.216.34", family: 4 },
+              { address: "127.0.0.1", family: 4 },
+            ]),
+          send: () => Effect.fail(Op.fail("must not send")),
+        },
+      ).pipe(
+        Effect.map(() => true),
+        Effect.catchAll(() => Effect.succeed(false)),
       )
-      assert.strictEqual(result._tag, "Left")
+      assert.isFalse(succeeded)
       assert.strictEqual(reads, 0)
     }),
   )
@@ -88,29 +89,30 @@ describe("request", () => {
     it.effect(`rejects unsafe request shape: ${JSON.stringify(options)}`, () =>
       Effect.gen(function* () {
         let touched = false
-        const result = yield* Effect.either(
-          Request.requestWith(
-            {
-              ...options,
-              reference: "op://Personal/Example/credential",
+        const succeeded = yield* Request.requestWith(
+          {
+            ...options,
+            reference: "op://Personal/Example/credential",
+          },
+          {
+            resolve: () => {
+              touched = true
+              return Effect.succeed(secret)
             },
-            {
-              resolve: () => {
-                touched = true
-                return Effect.succeed(secret)
-              },
-              addresses: () => {
-                touched = true
-                return Effect.succeed([{ address: "93.184.216.34", family: 4 }])
-              },
-              send: () => {
-                touched = true
-                return Effect.succeed({ status: 200, body: "", bytes: 0 })
-              },
+            addresses: () => {
+              touched = true
+              return Effect.succeed([{ address: "93.184.216.34", family: 4 }])
             },
-          ),
+            send: () => {
+              touched = true
+              return Effect.succeed({ status: 200, body: "", bytes: 0 })
+            },
+          },
+        ).pipe(
+          Effect.map(() => true),
+          Effect.catchAll(() => Effect.succeed(false)),
         )
-        assert.strictEqual(result._tag, "Left")
+        assert.isFalse(succeeded)
         assert.isFalse(touched)
       }),
     )
