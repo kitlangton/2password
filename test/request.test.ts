@@ -17,7 +17,7 @@ describe("request", () => {
           prefix: "Bearer ",
         },
         {
-          resolve: () => Effect.succeed(`${secret}\\n`),
+          resolve: () => Effect.succeed(`${secret}\n`),
           addresses: () => Effect.succeed([{ address: "93.184.216.34", family: 4 }]),
           send: (prepared, received, address) =>
             Effect.sync(() => {
@@ -140,7 +140,7 @@ describe("request", () => {
   })
 
   it("exposes the command and flags without touching op or the network", async () => {
-    const box = await sandbox({ op: "#!/bin/sh\\nexit 71\\n" })
+    const box = await sandbox({ op: "#!/bin/sh\nexit 71\n" })
     try {
       const result = await box.run(["request", "--help"])
       assert.strictEqual(result.code, 0)
