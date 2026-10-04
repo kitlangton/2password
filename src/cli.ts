@@ -9,6 +9,7 @@ import { Discover } from "./discover.js"
 import { Env, parseAssignment } from "./env.js"
 import { Op } from "./op.js"
 import { Password } from "./password.js"
+import { Request } from "./request.js"
 import { ServiceAccount } from "./service-account.js"
 
 const print = (value: unknown) => Console.log(JSON.stringify(value, null, 2))
@@ -97,6 +98,26 @@ const password = Command.make(
       yield* print(yield* Password.password({ ...options, source: yield* source({ clipboard, stdin }) }))
     }),
 ).pipe(Command.withDescription("Compare or update a Login password from private input without revealing it"))
+
+// Destination-bound consumption: the credential stays inside this process and the HTTPS request.
+
+const destinationRequest = Command.make(
+  "request",
+  {
+    url: Argument.String("url").pipe(Argument.withDescription("Exact HTTPS URL; port 443 only")),
+    secret: Flag.String("secret").pipe(Flag.withDescription("op:// reference injected into the request header")),
+    header: Flag.String("header").pipe(
+      Flag.withDefault("Authorization"),
+      Flag.withDescription("Secret header: Authorization or X-API-Key"),
+    ),
+    prefix: Flag.String("prefix").pipe(
+      Flag.withDefault("Bearer "),
+      Flag.withDescription("Non-secret text prepended to the credential"),
+    ),
+  },
+  ({ url, secret, header, prefix }) =>
+    Request.request({ url, reference: secret, header, prefix }).pipe(Effect.flatMap(print)),
+).pipe(Command.withDescription("GET an HTTPS URL with a destination-bound credential"))
 
 // Consumption: values go to a process or file, not to the conversation.
 
@@ -214,7 +235,7 @@ const root = Command.make("2password").pipe(
       Flag.withDescription("Use desktop authentication instead of the saved or environment service account"),
     ),
   }),
-  Command.withSubcommands([inventory, audit, find, create, password, read, run, env, serviceAccount]),
+  Command.withSubcommands([inventory, audit, find, create, password, destinationRequest, read, run, env, serviceAccount]),
   Command.provideEffect(Op.Credentials, ({ desktop }) => Auth.make(desktop)),
 )
 
