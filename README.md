@@ -35,7 +35,7 @@ Run `2password --help` to see all commands.
 ## Safety
 
 - Only `read` and `env resolve` ever intentionally output a secret.
-- `request` binds one credential to an HTTPS GET on port 443, rejects private/reserved destinations and redirects, caps responses at 64 KiB, and redacts exact secret echoes.
+- `request` binds one credential to an HTTPS GET on port 443, rejects private/reserved destinations, never follows redirects, caps responses at 64 KiB, and returns receipt metadata instead of the response body.
 - New secrets come in through the clipboard or a pipe, never as arguments. Every write is read back and checked.
 - Writes are never retried automatically.
 
