@@ -1,5 +1,5 @@
 import { Effect } from "effect"
-import { lookup } from "node:dns/promises"
+import { createHash } from "node:crypto"\nimport { lookup } from "node:dns/promises"
 import { request as httpsRequest } from "node:https"
 import { BlockList } from "node:net"
 import { Op } from "./op.js"
@@ -188,17 +188,12 @@ const send = (prepared: Prepared, secret: string, address: Address) =>
     catch: () => fail("HTTPS request failed (details suppressed)"),
   })
 
-const redact = (body: string, secret: string) => {
-  const variants = [...new Set([secret, JSON.stringify(secret).slice(1, -1)])].filter(Boolean)
-  let value = body
-  let redactions = 0
-  for (const variant of variants) {
-    const parts = value.split(variant)
-    redactions += parts.length - 1
-    value = parts.join("[REDACTED]")
-  }
-  return { value, redactions }
-}
+const countSecretEchoes = (body: string, secret: string) =>
+  [...new Set([secret, JSON.stringify(secret).slice(1, -1)])]
+    .filter(Boolean)
+    .reduce((count, variant) => count + body.split(variant).length - 1, 0)
+
+const destinationFingerprint = (url: URL) => createHash("sha256").update(url.href).digest("hex")
 
 export const requestWith = Effect.fn("Request.requestWith")(function* (options: Options, dependencies: Dependencies) {
   const prepared = yield* Effect.try({
@@ -218,15 +213,14 @@ export const requestWith = Effect.fn("Request.requestWith")(function* (options: 
   }
 
   const response = yield* dependencies.send(prepared, secret, address)
-  const body = redact(response.body, secret)
   return {
     ok: response.status >= 200 && response.status < 300,
     status: response.status,
     destination: `${prepared.url.origin}${prepared.url.pathname}`,
+    destinationFingerprint: destinationFingerprint(prepared.url),
     reference: options.reference,
     responseBytes: response.bytes,
-    redactions: body.redactions,
-    body: body.value,
+    secretEchoes: countSecretEchoes(response.body, secret),
   }
 })
 
