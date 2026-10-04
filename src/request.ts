@@ -29,8 +29,8 @@ interface RawResponse {
   readonly bytes: number
 }
 
-export interface Dependencies {
-  readonly resolve: (reference: string) => Effect.Effect<string, Op.Failure>
+export interface Dependencies<R = never> {
+  readonly resolve: (reference: string) => Effect.Effect<string, Op.Failure, R>
   readonly addresses: (hostname: string) => Effect.Effect<ReadonlyArray<Address>, Op.Failure>
   readonly send: (prepared: Prepared, secret: string, address: Address) => Effect.Effect<RawResponse, Op.Failure>
 }
@@ -202,7 +202,8 @@ const countSecretEchoes = (body: string, secret: string) =>
 
 const destinationFingerprint = (url: URL) => createHash("sha256").update(url.href).digest("hex")
 
-export const requestWith = Effect.fn("Request.requestWith")(function* (options: Options, dependencies: Dependencies) {
+export const requestWith = <R>(options: Options, dependencies: Dependencies<R>) =>
+  Effect.gen(function* () {
   const prepared = yield* Effect.try({
     try: () => prepare(options),
     catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
@@ -229,7 +230,7 @@ export const requestWith = Effect.fn("Request.requestWith")(function* (options: 
     responseBytes: response.bytes,
     secretEchoes: countSecretEchoes(response.body, secret),
   }
-})
+  })
 
 export const request = (options: Options) =>
   requestWith(options, {
