@@ -39,6 +39,9 @@ src/env.ts                  read, run, env write/resolve/run
 src/create.ts               create api-credential
 src/password.ts             password compare/update
 src/request.ts              destination-bound HTTPS private executor
+src/lease-store.ts          non-secret principal, bindings, expiry, atomic use counters
+src/lease.ts                1Password version pinning and claim-before-read policy
+src/request-leased.ts       lease authority wrapped around request execution
 src/service-account.ts      service-account setup/connect/status/recover/forget
 src/arguments.ts            keeps arguments after `--` away from the flag parser
 skills/2password/SKILL.md   the agent skill we ship; keep it in sync with the CLI
@@ -57,6 +60,9 @@ These are security properties. Do not weaken them.
 6. If the saved service account fails, report the failure. Never fall back to desktop authentication.
 7. Results are JSON on stdout and notices go to stderr. Every expected error is an `Op.Failure`, printed as `2password: <message>` with exit code 1.
 8. `request` validates the full HTTPS destination and all resolved addresses before reading a credential, rejects any special/private answer, pins the connection to one validated address, follows no redirects, caps the response, keeps its body private, and returns only non-secret receipt metadata.
+9. CLI `request` requires a matching lease. Local authorization happens before DNS; the credential version is checked before an atomic use claim; the claim is consumed before plaintext resolution; the version is checked again before anything can be sent.
+10. Replay, expiry, revocation, binding mismatch, stale version, read failure after claim, or mid-use rotation fail closed. Never refund or automatically retry a claimed use.
+11. `lease approve` is the human/admin UX boundary: interactive terminal only, desktop-authenticated, at most 1 hour and 10 uses. This is not per-agent OS isolation; same-user local code can still tamper with local state.
 
 ## Changing things
 
