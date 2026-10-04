@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { Effect } from "effect"
+import { Effect } from "effect"\nimport { createHash } from "node:crypto"
 import { Op } from "../src/op.js"
 import { Request, isPublicAddress } from "../src/request.js"
 import { sandbox } from "./sandbox.js"
@@ -26,7 +26,7 @@ describe("request", () => {
               assert.strictEqual(prepared.prefix, "Bearer ")
               assert.strictEqual(received, secret)
               assert.deepStrictEqual(address, { address: "93.184.216.34", family: 4 })
-              const body = `ok ${secret} then ${secret}`
+              const body = `ok ${secret} then ${secret} private@example.com`
               return { status: 200, body, bytes: Buffer.byteLength(body) }
             }),
         },
@@ -36,12 +36,15 @@ describe("request", () => {
         ok: true,
         status: 200,
         destination: "https://api.example.com/v1/me",
+        destinationFingerprint: createHash("sha256")
+          .update("https://api.example.com/v1/me?view=full")
+          .digest("hex"),
         reference: "op://Personal/Example/credential",
-        responseBytes: Buffer.byteLength(`ok ${secret} then ${secret}`),
-        redactions: 2,
-        body: "ok [REDACTED] then [REDACTED]",
+        responseBytes: Buffer.byteLength(`ok ${secret} then ${secret} private@example.com`),
+        secretEchoes: 2,
       })
       assert.notInclude(JSON.stringify(result), secret)
+      assert.notInclude(JSON.stringify(result), "private@example.com")
     }),
   )
 
@@ -134,8 +137,8 @@ describe("request", () => {
         },
       ),
     )
-    assert.strictEqual(result.body, '{"token":"[REDACTED]"}')
-    assert.strictEqual(result.redactions, 1)
+    assert.strictEqual(result.secretEchoes, 1)
+    assert.isFalse("body" in result)
     assert.notInclude(JSON.stringify(result), quoted)
   })
 
