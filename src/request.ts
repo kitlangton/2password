@@ -126,9 +126,7 @@ const addresses = (host: string) =>
       const resolved = results.flatMap(({ address, family }): ReadonlyArray<Address> =>
         family === 4 || family === 6 ? [{ address, family }] : [],
       )
-      return resolved.length === 0
-        ? Effect.fail(fail("Request destination did not resolve"))
-        : Effect.succeed(resolved)
+      return resolved.length === 0 ? Effect.fail(fail("Request destination did not resolve")) : Effect.succeed(resolved)
     }),
   )
 
