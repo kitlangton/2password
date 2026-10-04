@@ -13,6 +13,8 @@ description: Use for any password, API key, token, credential, secret, or 1Passw
 - Any 1Password call may show the user an approval prompt. Batch work into one command: many queries in one `find`, many references in one env file.
 - Never run `op whoami` or any other preflight check. Just run the command; the desktop app authorizes it when needed.
 - Never retry a write that failed or reported "unverified". Run `find` first to check whether it already happened.
+- Never run `lease approve` on the user's behalf. That command is the interactive human/admin approval boundary. Ask the user to run it and give you the returned lease ID.
+- A leased request use is consumed before secret resolution/network execution. If execution fails, do not retry with the same exhausted lease; inspect `lease status <id>` and ask for a new approval when needed.
 
 ## Find credentials
 
@@ -35,14 +37,22 @@ Returns titles, vaults, field names, and `op://` references. It never returns va
 
 All references in a template resolve with one prompt. Never loop over `read`. A `.env.tpl` that holds only `op://` references is safe to inspect; a resolved `.env` is plaintext.
 
-For a simple authenticated HTTPS GET, prefer the destination-bound request path over giving a general child process the credential:
+For a simple authenticated HTTPS GET, prefer the leased destination-bound path over giving a general child process the credential.
+
+First ask the user to approve the exact use in their own interactive terminal:
 
 ```bash
-2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
-2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --header X-API-Key --prefix ""
+2password lease approve https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --expires-in 10m --uses 1
 ```
 
-`request` validates HTTPS/port 443 and every resolved IP before reading the credential, pins the connection to a validated public address, never follows redirects, limits the response to 64 KiB, and returns only receipt metadata (status, bytes, destination fingerprint, and secret-echo count). The response body stays private. Use `run` only when the destination-bound request primitive cannot express the operation.
+Do **not** run that approval command yourself. After the user provides the returned lease ID:
+
+```bash
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --lease <lease-id>
+2password lease status <lease-id>
+```
+
+The lease binds the local principal, exact credential/item version, destination fingerprint, `GET`, header/prefix, expiry, and atomic use budget. Authorization happens before DNS. The executor then validates all destination IPs, claims one use before resolving plaintext, never follows redirects, limits the response to 64 KiB, and returns receipt metadata only. The response body stays private. Use `run` only when this narrower capability cannot express the operation.
 
 ## Save a new API key
 
