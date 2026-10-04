@@ -99,7 +99,7 @@ export const keychainToken = requireMacOS(
   Effect.andThen(
     keychain(
       "get",
-      "Could not read the saved service-account token; unlock Keychain or use --desktop. Desktop authentication was not attempted",
+      "Could not read the saved service-account token; check local credential storage or use --desktop. Desktop authentication was not attempted",
     ),
   ),
   Effect.map((token) => Redacted.make(token.replace(/\r?\n$/, ""))),
@@ -107,9 +107,9 @@ export const keychainToken = requireMacOS(
 
 export const saveToken = Effect.fn("Auth.saveToken")(function* (token: Redacted.Redacted<string>) {
   yield* requireMacOS("Saving a service account requires macOS Keychain")
-  yield* keychain("add", "Keychain storage failed; account creation must not be retried", token)
+  yield* keychain("add", "Local credential storage failed; account creation must not be retried", token)
   if (Redacted.value(yield* keychainToken) !== Redacted.value(token)) {
-    return yield* fail("Keychain read-back did not match; account creation must not be retried")
+    return yield* fail("Local credential read-back did not match; account creation must not be retried")
   }
 })
 
@@ -144,7 +144,7 @@ export const saveSettings = Effect.fn("Auth.saveSettings")(
   },
   Effect.mapError(() =>
     fail(
-      "The token may be saved in Keychain, but local settings could not be saved; use service-account recover, do not repeat account creation",
+      "The token may be saved locally, but local settings could not be saved; use service-account recover, do not repeat account creation",
     ),
   ),
 )
@@ -155,18 +155,18 @@ export const requireEmpty = Effect.gen(function* () {
     return yield* fail(
       "A service account is already configured; inspect it with service-account status before using service-account forget",
     )
-  const result = (yield* keychain("exists", "Could not check Keychain; nothing was created")).trim()
+  const result = (yield* keychain("exists", "Could not check local credential storage; nothing was created")).trim()
   if (result === "found")
     return yield* fail(
-      "A service-account token already exists in Keychain; use service-account recover or forget before setup",
+      "A service-account token already exists in local credential storage; use service-account recover or forget before setup",
     )
-  if (result !== "missing") return yield* fail("Could not check Keychain; nothing was created")
+  if (result !== "missing") return yield* fail("Could not check local credential storage; nothing was created")
 })
 
 export const forget = Effect.gen(function* () {
   yield* requireMacOS("Local service-account storage requires macOS Keychain")
-  yield* keychain("remove", "Could not remove the local Keychain token")
-  const remaining = (yield* keychain("exists", "Could not verify removal of the local Keychain token")).trim()
+  yield* keychain("remove", "Could not remove the saved service-account token")
+  const remaining = (yield* keychain("exists", "Could not verify removal of the saved service-account token")).trim()
   if (remaining !== "missing") return yield* fail("Could not verify removal of the local Keychain token")
   yield* (yield* FileSystem.FileSystem).remove(yield* settingsPath, { force: true })
   return { forgotten: true, remoteRevoked: false }
