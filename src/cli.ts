@@ -242,7 +242,19 @@ const root = Command.make("2password").pipe(
       Flag.withDescription("Use desktop authentication instead of the saved or environment service account"),
     ),
   }),
-  Command.withSubcommands([find, inventory, audit, create, password, destinationRequest, read, run, env, serviceAccount, doctor]),
+  Command.withSubcommands([
+    find,
+    inventory,
+    audit,
+    create,
+    password,
+    destinationRequest,
+    read,
+    run,
+    env,
+    serviceAccount,
+    doctor,
+  ]),
   Command.provideEffect(Op.Credentials, ({ desktop }) => Auth.make(desktop)),
 )
 
