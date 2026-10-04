@@ -5,6 +5,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { Lease } from "../src/lease.js"
 import { LeaseStore } from "../src/lease-store.js"
+import { Op } from "../src/op.js"
 import type { Binding } from "../src/request.js"
 
 const resource = { id: "i".repeat(26), version: 7 }
@@ -108,7 +109,7 @@ describe("lease policy", () => {
       )
       const resolve = Lease.resolverWith(created.id, binding, { path: f.path }, {
         inspect: () => Effect.succeed(resource),
-        read: () => Effect.fail(new Error("fictional read failure") as never),
+        read: () => Effect.fail(Op.fail("fictional read failure")),
       })
       assert.isTrue(await Effect.runPromise(failure(resolve(binding.reference))))
       assert.strictEqual((await Effect.runPromise(LeaseStore.status(created.id, { path: f.path }))).usesRemaining, 0)
