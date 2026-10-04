@@ -72,7 +72,7 @@ describe("request", () => {
         },
       ).pipe(
         Effect.map(() => true),
-        Effect.catchAll(() => Effect.succeed(false)),
+        Effect.catch(() => Effect.succeed(false)),
       )
       assert.isFalse(succeeded)
       assert.strictEqual(reads, 0)
@@ -110,7 +110,7 @@ describe("request", () => {
           },
         ).pipe(
           Effect.map(() => true),
-          Effect.catchAll(() => Effect.succeed(false)),
+          Effect.catch(() => Effect.succeed(false)),
         )
         assert.isFalse(succeeded)
         assert.isFalse(touched)
