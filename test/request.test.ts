@@ -170,7 +170,30 @@ describe("request", () => {
     try {
       const result = await box.run(["request", "--help"])
       assert.strictEqual(result.code, 0)
-      for (const value of ["<url>", "--secret", "--header", "--prefix"]) assert.include(result.stdout, value)
+      for (const value of ["<url>", "--secret", "--lease", "--header", "--prefix"]) assert.include(result.stdout, value)
+      assert.deepStrictEqual(await box.calls(), [])
+    } finally {
+      await box.close()
+    }
+  })
+
+  it("refuses non-interactive lease approval before touching 1Password", async () => {
+    const box = await sandbox({ op: "#!/bin/sh\nexit 71\n" })
+    try {
+      const help = await box.run(["lease", "approve", "--help"])
+      assert.strictEqual(help.code, 0)
+      for (const value of ["<url>", "--secret", "--expires-in", "--uses"]) assert.include(help.stdout, value)
+      assert.deepStrictEqual(await box.calls(), [])
+
+      const denied = await box.run([
+        "lease",
+        "approve",
+        "https://api.example.com/v1/me",
+        "--secret",
+        "op://Personal/Example/credential",
+      ])
+      assert.notStrictEqual(denied.code, 0)
+      assert.include(denied.stderr, "interactive terminal")
       assert.deepStrictEqual(await box.calls(), [])
     } finally {
       await box.close()
