@@ -171,7 +171,11 @@ const send = (prepared: Prepared, secret: string, address: Address) =>
                 bytes,
               })
             })
+            response.on("aborted", reject)
             response.on("error", reject)
+            response.on("close", () => {
+              if (!response.complete) reject()
+            })
           },
         )
         outbound.setTimeout(15_000, () => {
@@ -197,7 +201,10 @@ const redact = (body: string, secret: string) => {
 }
 
 export const requestWith = Effect.fn("Request.requestWith")(function* (options: Options, dependencies: Dependencies) {
-  const prepared = yield* Effect.try({\n    try: () => prepare(options),\n    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),\n  })
+  const prepared = yield* Effect.try({
+    try: () => prepare(options),
+    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
+  })
   const resolved = yield* dependencies.addresses(hostname(prepared.url))
   if (resolved.some((address) => !isPublicAddress(address))) {
     return yield* fail("Request destination resolved to a non-public address")
@@ -205,7 +212,7 @@ export const requestWith = Effect.fn("Request.requestWith")(function* (options: 
   const address = resolved[0]
   if (address === undefined) return yield* fail("Request destination did not resolve")
 
-  const secret = yield* dependencies.resolve(options.reference)
+  const secret = (yield* dependencies.resolve(options.reference)).replace(/\r?\n$/, "")
   if (secret.length === 0 || /[\r\n]/.test(secret)) {
     return yield* fail("Request credential cannot be used in an HTTP header")
   }
