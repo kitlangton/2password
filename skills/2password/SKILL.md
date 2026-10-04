@@ -42,7 +42,7 @@ For a simple authenticated HTTPS GET, prefer the destination-bound request path 
 2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --header X-API-Key --prefix ""
 ```
 
-`request` validates HTTPS/port 443 and every resolved IP before reading the credential, pins the connection to a validated public address, never follows redirects, limits the response to 64 KiB, and redacts exact secret echoes. Use `run` only when the destination-bound request primitive cannot express the operation.
+`request` validates HTTPS/port 443 and every resolved IP before reading the credential, pins the connection to a validated public address, never follows redirects, limits the response to 64 KiB, and returns only receipt metadata (status, bytes, destination fingerprint, and secret-echo count). The response body stays private. Use `run` only when the destination-bound request primitive cannot express the operation.
 
 ## Save a new API key
 
