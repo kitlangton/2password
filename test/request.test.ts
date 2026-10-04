@@ -1,7 +1,8 @@
 import { assert, describe, it } from "@effect/vitest"
 import { Effect } from "effect"
 import { Op } from "../src/op.js"
-import { Request, isPublicAddress } from "../src/request.js"\nimport { sandbox } from "./sandbox.js"
+import { Request, isPublicAddress } from "../src/request.js"
+import { sandbox } from "./sandbox.js"
 
 const secret = "fictional-request-secret"
 
@@ -61,7 +62,11 @@ describe("request", () => {
                 reads += 1
                 return secret
               }),
-            addresses: () =>\n              Effect.succeed([\n                { address: "93.184.216.34", family: 4 },\n                { address: "127.0.0.1", family: 4 },\n              ]),
+            addresses: () =>
+              Effect.succeed([
+                { address: "93.184.216.34", family: 4 },
+                { address: "127.0.0.1", family: 4 },
+              ]),
             send: () => Effect.fail(Op.fail("must not send")),
           },
         ),
