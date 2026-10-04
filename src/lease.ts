@@ -49,8 +49,9 @@ interface LeaseRow {
   readonly revoked_at: number | null
 }
 
-const VersionedItem = Schema.Struct({
+const VersionedSummary = Schema.Struct({
   id: Op.Id,
+  title: Schema.String,
   version: Schema.Number,
 })
 
@@ -74,9 +75,18 @@ export const inspectReference = Effect.fn("Lease.inspectReference")(function* (r
     try: () => referenceLocation(reference),
     catch: (error) => (error instanceof Op.Failure ? error : fail("Secret reference is malformed")),
   })
-  const value = yield* Op.json(VersionedItem, ["item", "get", item, "--vault", vault, "--format", "json"], {
-    failure: "Could not inspect credential version (1Password details suppressed)",
-  })
+  // Use item-list metadata rather than item-get JSON. Current 1Password CLI
+  // versions can include concealed field plaintext in JSON item-get output.
+  const values = yield* Op.json(
+    Schema.Array(VersionedSummary),
+    ["item", "list", "--vault", vault, "--format", "json"],
+    { failure: "Could not inspect credential version (1Password details suppressed)" },
+  )
+  const matches = values.filter((value) => value.id === item || value.title === item)
+  const value = matches[0]
+  if (matches.length !== 1 || value === undefined) {
+    return yield* fail("Credential item must resolve to exactly one item for lease versioning")
+  }
   if (!Number.isInteger(value.version) || value.version < 1) return yield* fail("1Password returned an invalid item version")
   return { id: value.id, version: value.version } satisfies ResourceVersion
 })
