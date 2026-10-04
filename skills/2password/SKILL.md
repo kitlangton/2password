@@ -35,6 +35,15 @@ Returns titles, vaults, field names, and `op://` references. It never returns va
 
 All references in a template resolve with one prompt. Never loop over `read`. A `.env.tpl` that holds only `op://` references is safe to inspect; a resolved `.env` is plaintext.
 
+For a simple authenticated HTTPS GET, prefer the destination-bound request path over giving a general child process the credential:
+
+```bash
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --header X-API-Key --prefix ""
+```
+
+`request` validates HTTPS/port 443 and every resolved IP before reading the credential, pins the connection to a validated public address, never follows redirects, limits the response to 64 KiB, and redacts exact secret echoes. Use `run` only when the destination-bound request primitive cannot express the operation.
+
 ## Save a new API key
 
 ```bash
