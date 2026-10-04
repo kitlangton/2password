@@ -12,6 +12,16 @@ export interface Options {
   readonly prefix: string
 }
 
+export interface Binding {
+  readonly capability: "request"
+  readonly method: "GET"
+  readonly reference: string
+  readonly destination: string
+  readonly destinationFingerprint: string
+  readonly header: "Authorization" | "X-API-Key"
+  readonly prefix: string
+}
+
 export interface Address {
   readonly address: string
   readonly family: 4 | 6
@@ -82,6 +92,8 @@ export const isPublicAddress = ({ address, family }: Address): boolean =>
     : !address.toLowerCase().startsWith("::ffff:") && !blocked.check(address, "ipv6")
 
 const hostname = (url: URL) => (url.hostname.startsWith("[") ? url.hostname.slice(1, -1) : url.hostname)
+
+const destinationFingerprint = (url: URL) => createHash("sha256").update(url.href).digest("hex")
 
 const prepare = (options: Options): Prepared => {
   let url: URL
@@ -202,7 +214,24 @@ const countSecretEchoes = (body: string, secret: string) =>
     .filter(Boolean)
     .reduce((count, variant) => count + body.split(variant).length - 1, 0)
 
-const destinationFingerprint = (url: URL) => createHash("sha256").update(url.href).digest("hex")
+const bindingOf = (options: Options, prepared: Prepared): Binding => ({
+  capability: "request",
+  method: "GET",
+  reference: options.reference,
+  destination: `${prepared.url.origin}${prepared.url.pathname}`,
+  destinationFingerprint: destinationFingerprint(prepared.url),
+  header: prepared.header,
+  prefix: prepared.prefix,
+})
+
+export const describe = (options: Options) =>
+  Effect.try({
+    try: () => {
+      const prepared = prepare(options)
+      return bindingOf(options, prepared)
+    },
+    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
+  })
 
 export const requestWith = Effect.fn("Request.requestWith")(function* (options: Options, dependencies: Dependencies) {
   const prepared = yield* Effect.try({
@@ -225,19 +254,24 @@ export const requestWith = Effect.fn("Request.requestWith")(function* (options: 
   return {
     ok: response.status >= 200 && response.status < 300,
     status: response.status,
-    destination: `${prepared.url.origin}${prepared.url.pathname}`,
-    destinationFingerprint: destinationFingerprint(prepared.url),
+    destination: bindingOf(options, prepared).destination,
+    destinationFingerprint: bindingOf(options, prepared).destinationFingerprint,
     reference: options.reference,
     responseBytes: response.bytes,
     secretEchoes: countSecretEchoes(response.body, secret),
   }
 })
 
-export const request = (options: Options) =>
+export const executeWithResolver = (
+  options: Options,
+  resolver: (reference: string) => Effect.Effect<string, Op.Failure>,
+) =>
   requestWith(options, {
-    resolve,
+    resolve: resolver,
     addresses,
     send,
   })
+
+export const request = (options: Options) => executeWithResolver(options, resolve)
 
 export * as Request from "./request.js"
