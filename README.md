@@ -18,7 +18,11 @@ bunx skills add kitlangton/2password  # teaches your agent to use it
 2password run --env "OPENAI_API_KEY=op://Personal/OpenAI API Key/credential" -- bun dev
 2password env run .env.tpl -- bun dev
 2password create api-credential --title "OpenAI API Key" --vault Personal --clipboard
-2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential"
+# human/admin terminal: approve exact use
+2password lease approve https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --expires-in 10m --uses 1
+
+# agent: consume the returned lease ID
+2password request https://api.example.com/v1/me --secret "op://Personal/Example API Key/credential" --lease <lease-id>
 ```
 
 Run `2password --help` to see all commands.
@@ -35,7 +39,9 @@ Run `2password --help` to see all commands.
 ## Safety
 
 - Only `read` and `env resolve` ever intentionally output a secret.
-- `request` binds one credential to an HTTPS GET on port 443, rejects private/reserved destinations, never follows redirects, caps responses at 64 KiB, and returns receipt metadata instead of the response body.
+- `request` requires a short-lived lease bound to the local principal, exact credential/version, HTTPS destination, header shape, expiry, and atomic use budget. Authorization happens before DNS; the use is claimed before the secret is resolved or sent.
+- The response body never returns to the agent. Only bounded receipt metadata is emitted.
+- `lease approve` is intentionally interactive + desktop-authenticated. It is an approval mechanism, not a claim that this CLI provides per-agent OS isolation.
 - New secrets come in through the clipboard or a pipe, never as arguments. Every write is read back and checked.
 - Writes are never retried automatically.
 
