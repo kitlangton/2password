@@ -32,7 +32,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "oxlint --deny-warnings",
     "format": "oxfmt",
-    "check": "oxfmt && git diff -- src/cli.ts src/request.ts test/request.test.ts && exit 1",
+    "check": "oxfmt --check && oxlint --deny-warnings && tsc --noEmit && vitest run",
     "prepublishOnly": "bun run check"
   },
   "dependencies": {
