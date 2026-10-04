@@ -8,9 +8,11 @@ import { Create } from "./create.js"
 import { Discover } from "./discover.js"
 import { Doctor } from "./doctor.js"
 import { Env, parseAssignment } from "./env.js"
+import { Lease } from "./lease.js"
 import { Op } from "./op.js"
 import { Password } from "./password.js"
 import { Request } from "./request.js"
+import { LeasedRequest } from "./request-leased.js"
 import { ServiceAccount } from "./service-account.js"
 
 const print = (value: unknown) => Console.log(JSON.stringify(value, null, 2))
@@ -113,6 +115,7 @@ const destinationRequest = Command.make(
   {
     url: Argument.String("url").pipe(Argument.withDescription("Exact HTTPS URL; port 443 only")),
     secret: Flag.String("secret").pipe(Flag.withDescription("op:// reference injected into the request header")),
+    lease: Flag.String("lease").pipe(Flag.withDescription("Approved short-lived lease ID")),
     header: Flag.String("header").pipe(
       Flag.withDefault("Authorization"),
       Flag.withDescription("Secret header: Authorization or X-API-Key"),
@@ -122,9 +125,63 @@ const destinationRequest = Command.make(
       Flag.withDescription("Non-secret text prepended to the credential"),
     ),
   },
-  ({ url, secret, header, prefix }) =>
-    Request.request({ url, reference: secret, header, prefix }).pipe(Effect.flatMap(print)),
-).pipe(Command.withDescription("GET an HTTPS URL without returning the credential or response body"))
+  ({ url, secret, lease, header, prefix }) =>
+    LeasedRequest.request(lease, { url, reference: secret, header, prefix }).pipe(Effect.flatMap(print)),
+).pipe(Command.withDescription("GET an HTTPS URL with a leased credential; response body stays private"))
+
+const leaseApprove = Command.make(
+  "approve",
+  {
+    url: Argument.String("url").pipe(Argument.withDescription("Exact HTTPS URL approved for this credential")),
+    secret: Flag.String("secret").pipe(Flag.withDescription("op:// reference to authorize")),
+    header: Flag.String("header").pipe(
+      Flag.withDefault("Authorization"),
+      Flag.withDescription("Secret header: Authorization or X-API-Key"),
+    ),
+    prefix: Flag.String("prefix").pipe(
+      Flag.withDefault("Bearer "),
+      Flag.withDescription("Non-secret text prepended to the credential"),
+    ),
+    expiresIn: Flag.String("expires-in").pipe(
+      Flag.withDefault("10m"),
+      Flag.withDescription("Lease lifetime; maximum 1h"),
+    ),
+    uses: Flag.String("uses").pipe(Flag.withDefault("1"), Flag.withDescription("Atomic use budget; maximum 10")),
+  },
+  ({ url, secret, header, prefix, expiresIn, uses }) =>
+    Effect.gen(function* () {
+      const binding = yield* Request.describe({ url, reference: secret, header, prefix })
+      yield* Console.error(
+        `Approve lease: ${JSON.stringify({
+          capability: binding.capability,
+          method: binding.method,
+          reference: binding.reference,
+          destination: binding.destination,
+          destinationFingerprint: binding.destinationFingerprint,
+          expiresIn,
+          uses,
+        })}`,
+      )
+      yield* print(yield* Lease.grant(binding, { expiresIn, uses: Number(uses) }))
+    }),
+).pipe(Command.withDescription("Interactively approve a short-lived request lease using desktop authentication"))
+
+const leaseStatus = Command.make(
+  "status",
+  { id: Argument.String("id") },
+  ({ id }) => Lease.status(id).pipe(Effect.flatMap(print)),
+).pipe(Command.withDescription("Show non-secret lease state"))
+
+const leaseRevoke = Command.make(
+  "revoke",
+  { id: Argument.String("id") },
+  ({ id }) => Lease.revoke(id).pipe(Effect.flatMap(print)),
+).pipe(Command.withDescription("Revoke a local lease immediately"))
+
+const lease = Command.make("lease").pipe(
+  Command.withDescription("Approve, inspect, and revoke short-lived credential-use leases"),
+  Command.withSubcommands([leaseApprove, leaseStatus, leaseRevoke]),
+)
 
 // Consumption: values go to a process or file, not to the conversation.
 
@@ -248,6 +305,7 @@ const root = Command.make("2password").pipe(
     audit,
     create,
     password,
+    lease,
     destinationRequest,
     read,
     run,
