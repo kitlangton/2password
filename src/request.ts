@@ -12,6 +12,16 @@ export interface Options {
   readonly prefix: string
 }
 
+export interface Binding {
+  readonly capability: "request"
+  readonly method: "GET"
+  readonly reference: string
+  readonly destination: string
+  readonly destinationFingerprint: string
+  readonly header: "Authorization" | "X-API-Key"
+  readonly prefix: string
+}
+
 export interface Address {
   readonly address: string
   readonly family: 4 | 6
@@ -202,6 +212,22 @@ const countSecretEchoes = (body: string, secret: string) =>
 
 const destinationFingerprint = (url: URL) => createHash("sha256").update(url.href).digest("hex")
 
+const bindingOf = (options: Options, prepared: Prepared): Binding => ({
+  capability: "request",
+  method: "GET",
+  reference: options.reference,
+  destination: `${prepared.url.origin}${prepared.url.pathname}`,
+  destinationFingerprint: destinationFingerprint(prepared.url),
+  header: prepared.header,
+  prefix: prepared.prefix,
+})
+
+export const describe = (options: Options) =>
+  Effect.try({
+    try: () => bindingOf(options, prepare(options)),
+    catch: (error) => (error instanceof Op.Failure ? error : fail("Could not prepare HTTPS request")),
+  })
+
 export const requestWith = <R>(options: Options, dependencies: Dependencies<R>) =>
   Effect.gen(function* () {
     const prepared = yield* Effect.try({
@@ -232,11 +258,16 @@ export const requestWith = <R>(options: Options, dependencies: Dependencies<R>) 
     }
   })
 
-export const request = (options: Options) =>
+export const executeWithResolver = <R>(
+  options: Options,
+  resolver: (reference: string) => Effect.Effect<string, Op.Failure, R>,
+) =>
   requestWith(options, {
-    resolve,
+    resolve: resolver,
     addresses,
     send,
   })
+
+export const request = (options: Options) => executeWithResolver(options, resolve)
 
 export * as Request from "./request.js"
