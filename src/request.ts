@@ -1,5 +1,6 @@
 import { Effect } from "effect"
-import { createHash } from "node:crypto"\nimport { lookup } from "node:dns/promises"
+import { createHash } from "node:crypto"
+import { lookup } from "node:dns/promises"
 import { request as httpsRequest } from "node:https"
 import { BlockList } from "node:net"
 import { Op } from "./op.js"
@@ -44,6 +45,7 @@ for (const [network, prefix] of [
   ["172.16.0.0", 12],
   ["192.0.0.0", 24],
   ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
   ["192.168.0.0", 16],
   ["198.18.0.0", 15],
   ["198.51.100.0", 24],
@@ -56,10 +58,17 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ["::", 128],
   ["::1", 128],
+  ["64:ff9b::", 96],
+  ["64:ff9b:1::", 48],
+  ["100::", 64],
+  ["2001::", 23],
+  ["2001:db8::", 32],
+  ["2002::", 16],
+  ["3fff::", 20],
+  ["5f00::", 16],
   ["fc00::", 7],
   ["fe80::", 10],
   ["ff00::", 8],
-  ["2001:db8::", 32],
 ] as const) {
   blocked.addSubnet(network, prefix, "ipv6")
 }
