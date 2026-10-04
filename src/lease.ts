@@ -2,7 +2,7 @@ import { Database } from "bun:sqlite"
 import { Effect, Schema } from "effect"
 import { randomUUID } from "node:crypto"
 import { chmodSync, mkdirSync } from "node:fs"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 import { Auth } from "./auth.js"
 import { Op } from "./op.js"
 import type { Binding } from "./request.js"
@@ -102,7 +102,7 @@ const storePath = (override?: string) => {
 
 const openDatabase = (override?: string) => {
   const path = storePath(override)
-  mkdirSync(join(path, ".."), { recursive: true, mode: 0o700 })
+  mkdirSync(dirname(path), { recursive: true, mode: 0o700 })
   const db = new Database(path, { create: true, strict: true })
   db.run("PRAGMA busy_timeout = 5000")
   db.run(`
@@ -233,7 +233,9 @@ export const grantWith = Effect.fn("Lease.grantWith")(function* (
 })
 
 export const grant = (binding: Binding, options: GrantOptions) =>
-  grantWith(binding, options, (reference) => inspectReference(reference).pipe(Auth.asDesktop))
+  process.stdin.isTTY && process.stderr.isTTY
+    ? grantWith(binding, options, (reference) => inspectReference(reference).pipe(Auth.asDesktop))
+    : Effect.fail(fail("Lease approval requires an interactive terminal"))
 
 export const authorize = Effect.fn("Lease.authorize")(function* (
   id: string,
