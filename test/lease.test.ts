@@ -143,6 +143,25 @@ describe("leases", () => {
     }
   })
 
+  it("expires without spending or reviving a lease", async () => {
+    const f = await fixture()
+    try {
+      const created = await Effect.runPromise(grant(f.path, 1, "1s"))
+      await new Promise((resolve) => setTimeout(resolve, 1100))
+      assert.strictEqual(
+        (await Effect.runPromise(Effect.either(Lease.authorize(created.id, binding, { path: f.path }))))._tag,
+        "Left",
+      )
+      assert.strictEqual(
+        (await Effect.runPromise(Effect.either(Lease.claim(created.id, binding, resource, { path: f.path }))))._tag,
+        "Left",
+      )
+      assert.strictEqual((await Effect.runPromise(Lease.status(created.id, { path: f.path }))).usesRemaining, 1)
+    } finally {
+      await f.close()
+    }
+  })
+
   it("rejects overbroad lifetimes and budgets before inspecting 1Password", async () => {
     const f = await fixture()
     try {
