@@ -33,7 +33,7 @@ describe("env resolve", () => {
 
       const { stdout, stderr } = await box.run(["env", "resolve", template, "--output", output])
       assert.strictEqual(stdout, "")
-      assert.match(stderr, /Resolved 3 secret references/)
+      assert.match(stderr, /^\[2password\]: Resolved 3 secret references into /)
       assert.deepStrictEqual((await readFile(join(box.home, "op.log"), "utf8")).trim().split("\n"), ["run"])
       assert.deepStrictEqual((await readFile(join(box.home, "references"), "utf8")).trim().split("\n"), [
         "op://Personal/First/credential",
