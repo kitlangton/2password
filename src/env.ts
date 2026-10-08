@@ -126,7 +126,7 @@ export const resolveFile = Effect.fn("Env.resolveFile")(function* (file: string,
     yield* fs.rename(temporary, target)
   }).pipe(Effect.ensuring(fs.remove(temporary, { force: true }).pipe(Effect.ignore)))
   yield* Console.error(
-    `Resolved ${result.count} secret references into ${target}; this file now contains plaintext secrets`,
+    `[2password]: Resolved ${result.count} secret references into ${target}; this file now contains plaintext secrets`,
   )
 })
 
