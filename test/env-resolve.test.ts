@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest"
-import { readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { sandbox } from "./sandbox.js"
 
@@ -32,6 +32,10 @@ describe("env resolve", () => {
       )
 
       const { stdout, stderr } = await box.run(["env", "resolve", template, "--output", output])
+      assert.strictEqual(
+        (await readdir(box.home)).some((entry) => entry.startsWith("..env.")),
+        false,
+      )
       assert.strictEqual(stdout, "")
       assert.match(stderr, /Resolved 3 secret references/)
       assert.deepStrictEqual((await readFile(join(box.home, "op.log"), "utf8")).trim().split("\n"), ["run"])
@@ -48,6 +52,26 @@ describe("env resolve", () => {
           'FIRST_AGAIN="first \\"secret\\""',
           "",
         ].join("\n"),
+      )
+    } finally {
+      await box.close()
+    }
+  })
+
+  it("removes the temporary directory when replacing the target fails", async () => {
+    const box = await sandbox({ op })
+    try {
+      const template = join(box.home, ".env.tpl")
+      const output = join(box.home, ".env")
+      await writeFile(template, "FIRST=op://Personal/First/credential\n")
+      await mkdir(output)
+
+      const result = await box.run(["env", "resolve", template, "--output", output])
+
+      assert.notStrictEqual(result.code, 0)
+      assert.strictEqual(
+        (await readdir(box.home)).some((entry) => entry.startsWith("..env.")),
+        false,
       )
     } finally {
       await box.close()

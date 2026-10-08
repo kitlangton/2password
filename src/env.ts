@@ -124,7 +124,7 @@ export const resolveFile = Effect.fn("Env.resolveFile")(function* (file: string,
     yield* fs.chmod(temporary, 0o600)
     yield* fs.writeFileString(temporary, result.content, { mode: 0o600 })
     yield* fs.rename(temporary, target)
-  }).pipe(Effect.ensuring(fs.remove(temporary, { force: true }).pipe(Effect.ignore)))
+  }).pipe(Effect.ensuring(fs.remove(path.dirname(temporary), { force: true, recursive: true }).pipe(Effect.ignore)))
   yield* Console.error(
     `Resolved ${result.count} secret references into ${target}; this file now contains plaintext secrets`,
   )
