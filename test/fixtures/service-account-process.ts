@@ -9,9 +9,11 @@ const calls = process.env.TEST_CALLS
 if (!home || !calls) throw new Error("Fixture environment missing")
 const keychain = join(home, "keychain-fixture")
 const automationId = "a".repeat(26)
+const githubActionsId = "g".repeat(26)
 const personalId = "p".repeat(26)
 const itemId = "i".repeat(26)
 const automation = { id: automationId, name: "Automation" }
+const githubActions = { id: githubActionsId, name: "github-actions" }
 const personal = { id: personalId, name: "Personal" }
 const scenario = process.env.TEST_SCENARIO
 const [command, ...args] = normalize(process.argv.slice(2))
@@ -72,8 +74,25 @@ if (args[0] === "vault" && args[1] === "list") {
   if (process.env.OP_SERVICE_ACCOUNT_TOKEN) {
     if (scenario === "token-rejected") fail()
     if (process.env.OP_CONNECT_TOKEN || process.env.OP_ACCOUNT) fail()
-    console.log(JSON.stringify(scenario === "wrong-grants" ? [automation, personal] : [automation]))
-  } else console.log(JSON.stringify(scenario === "new-vault" ? [personal] : [automation, personal]))
+    console.log(
+      JSON.stringify(
+        scenario === "wrong-grants"
+          ? [automation, personal]
+          : scenario === "multi-vault"
+            ? [automation, githubActions]
+            : [automation],
+      ),
+    )
+  } else
+    console.log(
+      JSON.stringify(
+        scenario === "new-vault"
+          ? [personal]
+          : scenario === "multi-vault" || scenario === "wrong-grants"
+            ? [automation, githubActions, personal]
+            : [automation, personal],
+      ),
+    )
   process.exit(0)
 }
 if (args[0] === "vault" && args[1] === "create") {

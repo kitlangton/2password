@@ -173,7 +173,10 @@ const serviceSetup = Command.make(
   "setup",
   {
     name: accountName,
-    vault: Flag.String("vault").pipe(Flag.withDefault("Automation")),
+    vault: Flag.atLeast(Flag.String("vault"), 1).pipe(
+      Flag.withDefault(["Automation"]),
+      Flag.withDescription("Automation vault to grant; repeat for multiple vaults"),
+    ),
     saveVault: Flag.String("save-vault").pipe(
       Flag.withDescription("Existing administrator vault for the token backup, e.g. Personal"),
     ),

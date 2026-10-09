@@ -127,6 +127,65 @@ describe.skipIf(process.platform !== "darwin" && process.platform !== "win32")("
     }
   })
 
+  it("keeps Automation as the default vault", async () => {
+    const f = await fixture()
+    try {
+      const result = await f.run([...setupArgs.slice(0, 4), ...setupArgs.slice(6)])
+      assert.strictEqual(result.code, 0, result.stderr)
+      assert.include(
+        result.op.find(({ args }) => args?.[0] === "service-account")?.args ?? [],
+        `${"a".repeat(26)}:read_items`,
+      )
+    } finally {
+      await f.close()
+    }
+  })
+
+  it("grants and verifies access to multiple vaults", async () => {
+    const f = await fixture()
+    try {
+      const result = await f.run(
+        [
+          ...setupArgs.slice(0, 4),
+          "--vault",
+          "github-actions",
+          "--vault",
+          "Automation",
+          ...setupArgs.slice(6),
+          "--write",
+        ],
+        "multi-vault",
+      )
+      assert.strictEqual(result.code, 0, result.stderr)
+      const creation = result.op.find(({ args }) => args?.[0] === "service-account")?.args ?? []
+      assert.include(creation, `${"a".repeat(26)}:read_items,write_items`)
+      assert.include(creation, `${"g".repeat(26)}:read_items,write_items`)
+      assert.deepStrictEqual(
+        JSON.parse(result.stdout)
+          .vaults.map(({ name }: { name: string }) => name)
+          .toSorted(),
+        ["Automation", "github-actions"],
+      )
+    } finally {
+      await f.close()
+    }
+  })
+
+  it("refuses a multi-vault setup when the token grants do not match", async () => {
+    const f = await fixture()
+    try {
+      const result = await f.run(
+        [...setupArgs.slice(0, 4), "--vault", "github-actions", "--vault", "Automation", ...setupArgs.slice(6)],
+        "wrong-grants",
+      )
+      assert.notStrictEqual(result.code, 0)
+      assert.include(result.stderr, "vault access did not match")
+      assert.strictEqual(result.op.filter(({ args }) => args?.[0] === "service-account").length, 1)
+    } finally {
+      await f.close()
+    }
+  })
+
   for (const scenario of ["keychain-denied", "duplicate-backup", "new-vault"]) {
     it(`does not create an account after ${scenario}`, async () => {
       const f = await fixture()

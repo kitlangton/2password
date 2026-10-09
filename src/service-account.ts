@@ -24,7 +24,7 @@ const parseToken = (raw: string) => {
 
 export interface SetupOptions {
   readonly name: string
-  readonly vault: string
+  readonly vault: ReadonlyArray<string>
   readonly saveVault: string
   readonly account?: string | undefined
   readonly createVault: boolean
@@ -36,20 +36,24 @@ export interface SetupOptions {
 // before anything else can fail, so partial setups are recoverable, never retried.
 export const setup = Effect.fn("ServiceAccount.setup")(function* (options: SetupOptions) {
   const name = options.name.trim()
-  const vaultName = options.vault.trim()
+  const vaultNames = options.vault.map((vault) => vault.trim())
   const saveVault = options.saveVault.trim()
   const { account } = options
   if (
     !name ||
-    !vaultName ||
+    vaultNames.length === 0 ||
+    vaultNames.some((vault) => !vault) ||
     !saveVault ||
     name.startsWith("-") ||
-    vaultName.startsWith("-") ||
-    /[\r\n]/.test(name + vaultName + saveVault)
+    vaultNames.some((vault) => vault.startsWith("-")) ||
+    /[\r\n]/.test(name + vaultNames.join("") + saveVault)
   ) {
     return yield* fail("A non-empty account name, automation vault, and backup vault are required")
   }
-  if (builtInVaults.includes(vaultName.toLowerCase())) {
+  if (new Set(vaultNames).size !== vaultNames.length) {
+    return yield* fail("Automation vaults must be unique")
+  }
+  if (vaultNames.some((vault) => builtInVaults.includes(vault.toLowerCase()))) {
     return yield* fail(
       "Choose a dedicated automation vault; built-in personal/shared vaults cannot be granted to service accounts",
     )
@@ -78,25 +82,41 @@ export const setup = Effect.fn("ServiceAccount.setup")(function* (options: Setup
     )
   }
 
-  const selected = select(vaultName)
-  if (selected.length > 1) return yield* fail("Automation vault name is ambiguous; specify its ID")
-  let vault = selected[0]
-  if (vault === undefined) {
-    if (!options.createVault) return yield* fail("Automation vault does not exist; use --create-vault to create it")
-    vault = yield* admin(
+  const requested = yield* Effect.forEach(vaultNames, (vaultName) => {
+    const matches = select(vaultName)
+    if (matches.length > 1) return fail("Automation vault name is ambiguous; specify its ID")
+    const existing = matches[0]
+    if (existing) return Effect.succeed(existing)
+    if (!options.createVault) return fail("An automation vault does not exist; use --create-vault to create it")
+    return Effect.succeed({ id: "", name: vaultName })
+  })
+  const resolved: Array<typeof Auth.Vault.Type> = []
+  for (const vault of requested) {
+    if (vault.id) {
+      resolved.push(vault)
+      continue
+    }
+    const created = yield* admin(
       Auth.Vault,
-      ["vault", "create", vaultName, "--format", "json"],
+      ["vault", "create", vault.name, "--format", "json"],
       account,
       "Vault creation is unverified; inspect your vaults before retrying",
     )
-    if (vault.name !== vaultName)
+    if (created.name !== vault.name)
       return yield* fail("The created vault name did not match; inspect your vaults before retrying")
+    resolved.push(created)
   }
-  if (builtInVaults.includes(vault.name.toLowerCase()) || vault.id === backup.id) {
+  if (
+    resolved.some((vault) => builtInVaults.includes(vault.name.toLowerCase()) || vault.id === backup.id) ||
+    new Set(resolved.map((vault) => vault.id)).size !== resolved.length
+  ) {
     return yield* fail("Use a dedicated automation vault and a separate backup vault for its service-account token")
   }
 
-  const grant = `${vault.id}:read_items${options.write ? ",write_items" : ""}`
+  const grants = resolved.flatMap((vault) => [
+    "--vault",
+    `${vault.id}:read_items${options.write ? ",write_items" : ""}`,
+  ])
   const uncertain =
     "Service-account creation is unverified. Do not retry setup; inspect service accounts in 1Password (details suppressed)"
   const token = yield* Op.op(
@@ -104,8 +124,7 @@ export const setup = Effect.fn("ServiceAccount.setup")(function* (options: Setup
       "service-account",
       "create",
       name,
-      "--vault",
-      grant,
+      ...grants,
       "--raw",
       ...(options.expiresIn ? ["--expires-in", options.expiresIn] : []),
     ],
@@ -116,7 +135,7 @@ export const setup = Effect.fn("ServiceAccount.setup")(function* (options: Setup
     Effect.mapError(() => fail(uncertain)),
   )
   yield* Auth.saveToken(token)
-  const settings: Auth.Settings = { name, vaults: [{ id: vault.id, name: vault.name }] }
+  const settings: Auth.Settings = { name, vaults: resolved }
   yield* Auth.saveSettings(settings)
 
   const visible = yield* Auth.visibleVaults(token).pipe(
@@ -126,7 +145,9 @@ export const setup = Effect.fn("ServiceAccount.setup")(function* (options: Setup
       ),
     ),
   )
-  if (visible.length !== 1 || visible[0]?.id !== vault.id) {
+  const expectedIds = resolved.map((vault) => vault.id).toSorted()
+  const visibleIds = visible.map((vault) => vault.id).toSorted()
+  if (visibleIds.length !== expectedIds.length || visibleIds.some((id, index) => id !== expectedIds[index])) {
     return yield* fail(
       "The created account's vault access did not match. Its token is saved locally; inspect service-account status, do not repeat setup",
     )

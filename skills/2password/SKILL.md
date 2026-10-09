@@ -73,10 +73,10 @@ Treat findings as candidates for review. Propose renames or changes, and only ma
 If the user is tired of approval prompts, suggest a service account. Only set one up when the user asks.
 
 ```bash
-2password service-account setup --vault Automation --create-vault --write --save-vault Personal
+2password service-account setup --vault github-actions --vault automations --write --save-vault Personal
 ```
 
-After setup, every command authenticates silently with a token stored in macOS Keychain (on Windows, a DPAPI-encrypted file under `%LOCALAPPDATA%`), but it can only reach the Automation vault. On Windows, any process running as the user can decrypt that file, so the vault's narrow scope is the real boundary. Keep the credentials agents use in that vault.
+After setup, every command authenticates silently with a token stored in macOS Keychain (on Windows, a DPAPI-encrypted file under `%LOCALAPPDATA%`), but it can only reach the explicitly granted automation vaults. Repeat `--vault` for each vault; omitting it defaults to `Automation`. On Windows, any process running as the user can decrypt that file, so the vaults' narrow scope is the real boundary. Keep the credentials agents use in those vaults.
 
 - `2password --desktop <command>` uses the normal desktop login, for example to reach other vaults.
 - `service-account status | connect --clipboard | recover | forget`. `forget` removes only this Mac's copy; it doesn't revoke the account.
